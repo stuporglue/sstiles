@@ -5,23 +5,7 @@
         <!--[if lte IE 8]>
         <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.6.4/leaflet.ie.css" />
         <![endif]-->
-        <style type='text/css'>
-            html,body {
-                height: 100%;
-                margin: 0;
-                padding: 0;
-            }
-            #map {
-                height: 100%;
-                width: 100%;
-            }
-            #spiders{
-                position: absolute;
-                top: 0;
-                right: 0;
-                background-color: white;
-            }
-        </style>
+        <link rel="stylesheet" href="style.css" />
     </head>
     <body>
         <div id='map'>
@@ -30,14 +14,14 @@
         <script type='text/javascript'>
             // Initialize a map
             var map = new L.Map('map', {
-                maxZoom : 18,
+                maxZoom : 9,
                 center : [0,0],
-                zoom : 3
+                zoom : 2
             });
 
             // 
-            L.tileLayer('tile.php/maps/black_and_white.png/{z}/{x}/{y}.png', {
-                attribution: 'Map From <a href="http://github.com/stuporglue/sstiles>Stupid-Simple Tiles</a>',
+            L.tileLayer('../tile.php/maps/black_and_white.png/{z}/{x}/{y}.png', {
+                attribution: 'Map From <a href="http://github.com/stuporglue/sstiles">Stupid-Simple Tiles</a>',
                 maxZoom: 18,
                 noWrap: true
             }).addTo(map);

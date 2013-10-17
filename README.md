@@ -38,7 +38,6 @@ An OpenLayers example:
     map.addLayer(basemap);
 
 
-
 Notes
 -----
  * Initial map loading will be SLOW because it's generating tiles
@@ -97,3 +96,7 @@ For accurate maps you will want to use or project your base map into the EPSG:37
 projection (AKA 900913). The resulting image should be a square with a map of the world.
 
 See [Slippy Map Tilenames](http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames) for more information.
+
+Demo
+----
+Demo coming soon. You can deploy the demo files on your own PHP server for testing for now. 
