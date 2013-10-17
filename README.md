@@ -39,10 +39,15 @@ An OpenLayers example:
 
 
 
-### Notes
-
+Notes
+-----
+ * Initial map loading will be SLOW because it's generating tiles
+  - Subsequent loads will be faster since the tiles are already made
  * Yes, you just keep adding slashes after the tile.php. Your server must support PATH_INFO
  * Yes, the file extention should be .png at the end. All generated tiles are saved as pngs
+ * Tiles can take up a LOT of room. Limit your map zoom level to limit how many tile levels get created
+ * SSTiles is as dump as a bag of hammers. It has to load the image for each tile it creates. 
+  - In the normal case this is OK, since each request is for a single tile. If you want to generate tiles ahead of time there are better tools
 
 
 Features
