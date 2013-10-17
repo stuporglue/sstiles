@@ -13,12 +13,12 @@ Instructions
 Place sstiles.php, tile.php (or pad.php) in a directory on your web server with 
 the image you wish to use as a basemap.
 
-    * sstiles.php
-        - The tiling library itself
-    * tile.php 
-        - Makes tiles, stretching the image if it is not square
-    * pad.php
-        - Makes tiles, padding the image if it is not square
+ * sstiles.php
+  - The tiling library itself
+ * tile.php 
+  - Makes tiles, stretching the image if it is not square
+ * pad.php
+  - Makes tiles, padding the image if it is not square
 
 
 Add an XYZ layer to your map with the following URL, replacing $Z, $X and $Y 
