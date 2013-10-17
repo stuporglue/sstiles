@@ -99,4 +99,14 @@ See [Slippy Map Tilenames](http://wiki.openstreetmap.org/wiki/Slippy_map_tilenam
 
 Demo
 ----
-Demo coming soon. You can deploy the demo files on your own PHP server for testing for now. 
+An online demo can bee found here: http://moorespatial.com/sstiles/demo/
+
+Initial visitors will find it very slow as it's cahe isn't built up yet, and it's on shared hosting.
+
+Subsequent visitors should find it loading at acceptable speeds.
+
+TODO
+----
+
+ * Implement convert support
+ * Implement MagickWand support

@@ -148,16 +148,16 @@ class sstiles {
          */
 
 
-        // GD seems to be faster, so that's the default
-        // If GD is not installed, then we'll try ImageMagick
+	// GD seems to be faster, but imagick uses less memory,
+	// so that's the default
         //
         // NOTE: We also fall through to ImageMagick if the 
         // source map is a format that GD doesn't support
-        if(extension_loaded('gd')){
-            return $this->makeCacheGD();
-            exit();
-        }else if(class_exists("Imagick")) {
+        if(extension_loaded('imagick')){
             return $this->makeCacheIM();
+            exit();
+	}else if(extension_loaded('gd')){
+            return $this->makeCacheGD();
             exit();
         }else{
             header("HTTP/1.0 501 Not Implemented");
