@@ -147,6 +147,12 @@ class sstiles {
          * 6) Send created image
          */
 
+
+        // GD seems to be faster, so that's the default
+        // If GD is not installed, then we'll try ImageMagick
+        //
+        // NOTE: We also fall through to ImageMagick if the 
+        // source map is a format that GD doesn't support
         if(extension_loaded('gd')){
             return $this->makeCacheGD();
             exit();
@@ -291,6 +297,10 @@ class sstiles {
             case 'image/jpeg':
                 $image = imagecreatefromjpeg($this->mapfile);
                 break;
+            default:
+                if(class_exists('Imagick')){
+                    return $this->makeCacheIM();
+                }
         }
 
         // Determine the start pixel and dimensions of our tile
