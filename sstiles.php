@@ -148,8 +148,8 @@ class sstiles {
          */
 
 
-        // GD seems to be faster, so that's the default
-        // If GD is not installed, then we'll try ImageMagick
+	// GD seems to be faster, but imagick uses less memory,
+	// so that's the default
         //
         // NOTE: We also fall through to ImageMagick if the 
         // source map is a format that GD doesn't support

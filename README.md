@@ -69,6 +69,8 @@ For best accuracy, your source map should be a propperly world map in the
 EPSG:3785 (Web Mercator) projection. The resulting map is square, and SSTiles will 
 never distort a square source map.
 
+[DEMO](http://moorespatial.com/sstiles/demo/square.html)
+
 ![A square map will never be stretched](https://raw.github.com/stuporglue/sstiles/master/img/square.png)
 
 If you use a non-square source map, and use the tiles.php to generate tiles, the
@@ -79,6 +81,8 @@ map at specific coordinates they will likely not line up with features on the ba
 
 Still, if this is what you want SSTiles is here for you. 
 
+[DEMO](http://moorespatial.com/sstiles/demo/nonsquare.html)
+
 ![For normal tile making, a non-square map will be stretched so that its tiles are square](https://raw.github.com/stuporglue/sstiles/master/img/nonsquare.png)
 
 
@@ -86,6 +90,8 @@ If you have a non-square source image which you want to present without distorti
 you can use the pad.php script to generate tiles. It will pad the source image 
 without distorting it. The source image will be anchored at the top left of the 
 map and padded on the right and bottom as needed.
+
+[DEMO](http://moorespatial.com/sstiles/demo/document.html)
 
 ![For padded tile making, a non-square map will be padded so that the tiles are square](https://raw.github.com/stuporglue/sstiles/master/img/padded.png)
 
@@ -99,9 +105,13 @@ See [Slippy Map Tilenames](http://wiki.openstreetmap.org/wiki/Slippy_map_tilenam
 
 Demo
 ----
-Demo coming soon. You can deploy the demo files on your own PHP server for testing for now. 
+An online demo can bee found here: http://moorespatial.com/sstiles/demo/
+
+Initial visitors will find it very slow as it's cahe isn't built up yet, and it's on shared hosting.
+
+Subsequent visitors should find it loading at acceptable speeds.
+
 
 TODO
 ----
  * Support MagickWand library (currently supports IMagick library)
-
