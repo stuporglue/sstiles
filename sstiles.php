@@ -153,7 +153,10 @@ class sstiles {
         //
         // NOTE: We also fall through to ImageMagick if the 
         // source map is a format that GD doesn't support
-        if(extension_loaded("imagick")) {
+        if(extension_loaded("magickwand")) {
+            return $this->makeCacheMagickWand();
+            exit();
+        }else if(extension_loaded("imagick")) {
             return $this->makeCacheIM();
             exit();
         }else if(`which convert` != ''){
@@ -417,6 +420,80 @@ class sstiles {
 
         $this->printHeaders();
         imagepng($image);
+        return TRUE;
+    }
+
+    /**
+     * Make tiles with ImageMagick, using the magickwand php extension
+     *
+     * http://www.imagemagick.org/api/magick-image.php#MagickResizeImage
+     */
+    private function makeCacheMagickWand(){
+
+        $image = NewMagickWand();
+        MagickReadImage($image,$this->mapfile);
+
+        $srcwidth = MagickGetImageWidth($image);
+        $srcheight = MagickGetImageHeight($image);
+
+        $cropDim = $this->findMapSquare($srcwidth,$srcheight);
+
+        if(
+            ($cropDim['sx'] + $cropDim['tw']) > $srcwidth ||
+            ($cropDim['sy'] + $cropDim['th']) > $srcheight
+        ){
+
+            // We're going to make a transparent tile, 
+            // then crop out the part of the source image we want
+            // then resize the cropped piece
+            // then compose the map piece over the transparent tile
+
+            // Transparent tile
+            $pad = new NewMagickWand();
+            MagickNewImage($pad,256,256,'none');
+
+            if(
+                $cropDim['sx'] > $srcwidth || 
+                $cropDim['sy'] > $srcheight
+            ){
+                // we're completely off the map. Just use the transparent tile
+                $image = $pad;
+            }else{
+
+                // Crop it 
+                $chunkWidth = min($srcwidth - $cropDim['sx'],$cropDim['tw']);
+                $chunkHeight = min($srcheight - $cropDim['sy'],$cropDim['th']);
+                MagickCropImage($image,$chunkWidth,$chunkHeight,$cropDim['sx'],$cropDim['sy']);
+
+                // Stretch it
+                $resizeWidth = floor($chunkWidth / $cropDim['tw'] * 256);
+                $resizeHeight = floor($chunkHeight / $cropDim['th'] * 256);
+                MagickResizeImage($image,$resizeWidth,$resizeHeight,MW_PointFilter,0.5);
+
+                // Compose it
+                MagickCompositeImage($pad,$image,MW_OverCompositeOp,0,0);
+
+                // Replace it
+                $image = $pad;
+            }
+        } else {
+            // Standard on-map tiles
+            MagickCropImage($image,$cropDim['tw'],$cropDim['th'],$cropDim['sx'],$cropDim['sy']);
+            MagickResizeImage($image,256,256,MW_PointFilter,0.5);
+        }
+
+
+        if($this->cacheFile !== FALSE){
+            try {
+                @MagickWriteImage($image,__DIR__ . '/' . $this->cacheFile);
+            }catch (Exception $e){
+                error_log($e->getMessage());
+            }
+        }
+
+
+        $this->printHeaders();
+        print MagickEchoImageBlob($image);
         return TRUE;
     }
 }

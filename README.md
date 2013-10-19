@@ -114,4 +114,8 @@ Subsequent visitors should find it loading at acceptable speeds.
 
 TODO
 ----
- * Support MagickWand library (currently supports IMagick library)
+ * Support GraphicsMagick
+
+Bugs
+----
+ * MagickWand does not support paged images
