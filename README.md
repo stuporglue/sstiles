@@ -100,3 +100,8 @@ See [Slippy Map Tilenames](http://wiki.openstreetmap.org/wiki/Slippy_map_tilenam
 Demo
 ----
 Demo coming soon. You can deploy the demo files on your own PHP server for testing for now. 
+
+TODO
+----
+ * Support MagickWand library (currently supports IMagick library)
+

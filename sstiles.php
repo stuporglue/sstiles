@@ -153,11 +153,14 @@ class sstiles {
         //
         // NOTE: We also fall through to ImageMagick if the 
         // source map is a format that GD doesn't support
-        if(extension_loaded('gd')){
-            return $this->makeCacheGD();
-            exit();
-        }else if(class_exists("Imagick")) {
+        if(extension_loaded("imagick")) {
             return $this->makeCacheIM();
+            exit();
+        }else if(`which convert` != ''){
+            return $this->makeCacheIMExec();
+            exit();
+        }else if(extension_loaded('gd')){
+            return $this->makeCacheGD();
             exit();
         }else{
             header("HTTP/1.0 501 Not Implemented");
@@ -279,6 +282,62 @@ class sstiles {
     }
 
     /**
+     * Make tiles with the convert binary (ImageMagick binary)
+     */
+    private function makeCacheIMExec(){
+        // Array($width,$height)
+        $identcmd = "convert " . escapeshellarg($this->mapfile) . " -format '%w,%h' info:";
+        $ident = explode(',',`$identcmd`);
+        $cropDim = $this->findMapSquare($ident[0],$ident[1]);
+
+        // For the command line ImageMagick we construct the command, except for
+        // the output. If caching is enabled we write to a file, otherwise we 
+        // have to just send it to the browser
+
+        // Handle tiles which are off the map
+        if(
+            ($cropDim['sx'] + $cropDim['tw']) > $ident[0] ||
+            ($cropDim['sy'] + $cropDim['th']) > $ident[1]
+        ){
+            if(
+                $cropDim['sx'] > $ident['geometry']['width'] || 
+                $cropDim['sy'] > $ident['geometry']['height']
+            ){
+                // we're completely off the map. Just use the transparent tile
+                $tilecmd = "convert -size 256x256 xc:#12312300 png:-";
+                $tile = `$tilecmd`;
+            }else{
+                $chunkWidth = min($ident['geometry']['width'] - $cropDim['sx'],$cropDim['tw']);
+                $chunkHeight = min($ident['geometry']['height'] - $cropDim['sy'],$cropDim['th']);
+                $resizeWidth = floor($chunkWidth / $cropDim['tw'] * 256);
+                $resizeHeight = floor($chunkHeight / $cropDim['th'] * 256);
+
+                // crop, repage, resize, pad
+                $tilecmd = "convert " . escapeshellarg($this->mapfile) . " -crop {$chunkWidth}x{$chunkHeight}+{$cropDim['sx']}+{$cropDim['sy']} +repage -resize {$resizeWidth}x{$resizeHeight} -background '#12121200' -gravity northwest -extent 256x256 png:-";
+                $tile = `$tilecmd`;
+            }
+        }else{
+            // crop, scale
+            $tilecmd = "convert " . escapeshellarg($this->mapfile) . " -crop {$cropDim['tw']}x{$cropDim['th']}+{$cropDim['sx']}+{$cropDim['sy']} +repage -resize 256x256! -filter Point png:-";
+            $tile = `$tilecmd`;
+        }
+
+        // Should we cache it? 
+        if($this->cacheFile !== FALSE){
+            try {
+                @file_put_contents(__DIR__ . '/' . $this->cacheFile,$tile);
+            }catch (Exception $e){
+                error_log($e->getMessage());
+            }
+        }
+
+        // Send the image from our variable instead of reading the file we just (maybe) wrote
+        $this->printHeaders();
+        print $tile;
+        return TRUE;
+    }
+
+    /**
      * Make tiles with GD
      */
     private function makeCacheGD(){
@@ -288,19 +347,19 @@ class sstiles {
 
         // Read in the file
         switch($ident['mime']){
-            case 'image/png':
-                $image = imagecreatefrompng($this->mapfile);
-                break;
-            case 'image/gif':
-                $image = imagecreatefromgif($this->mapfile);
-                break;
-            case 'image/jpeg':
-                $image = imagecreatefromjpeg($this->mapfile);
-                break;
-            default:
-                if(class_exists('Imagick')){
-                    return $this->makeCacheIM();
-                }
+        case 'image/png':
+            $image = imagecreatefrompng($this->mapfile);
+            break;
+        case 'image/gif':
+            $image = imagecreatefromgif($this->mapfile);
+            break;
+        case 'image/jpeg':
+            $image = imagecreatefromjpeg($this->mapfile);
+            break;
+        default:
+            header("HTTP/1.0 501 Not Implemented");
+            error_log("GD doesn't support {$ident['mime']} format. Please install imagemagick!");
+            exit();
         }
 
         // Determine the start pixel and dimensions of our tile
