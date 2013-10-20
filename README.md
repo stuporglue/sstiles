@@ -59,7 +59,13 @@ Features
  * Caches generated tiles!
  * Auto-updates cache when source file is updated!
  * Sends HTTP caching headers! 
- * Supports GD and ImageMagick!
+ * Automatically supports several graphics libraries!
+    * GD (with gd module)
+    * ImageMagick (with IMagick module)
+    * ImageMagick (with MagickWand module)
+    * ImageMagick (command line programs)
+    * GraphicsMagick (with GMagick module)
+
 
 
 Source Maps and Tile Types
@@ -111,11 +117,7 @@ Initial visitors will find it very slow as it's cahe isn't built up yet, and it'
 
 Subsequent visitors should find it loading at acceptable speeds.
 
-
-TODO
-----
- * Support GraphicsMagick
-
 Bugs
 ----
- * MagickWand does not support paged images
+ * MagickWand library does not have a repage operation (that I can find)
+ * GraphicsMagick library does not have a repage operation (that I can find)

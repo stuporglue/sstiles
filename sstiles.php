@@ -148,12 +148,10 @@ class sstiles {
          */
 
 
-	// GD seems to be faster, but imagick uses less memory,
-	// so that's the default
-        //
-        // NOTE: We also fall through to ImageMagick if the 
-        // source map is a format that GD doesn't support
-        if(extension_loaded("magickwand")) {
+        if(extension_loaded('gmagick')){
+            return $this->makeCacheGM();
+            exit();
+        }else if(extension_loaded("magickwand")) {
             return $this->makeCacheMagickWand();
             exit();
         }else if(extension_loaded("imagick")) {
@@ -205,6 +203,8 @@ class sstiles {
 
     /**
      * Make tiles with imagemagick
+     *
+     * http://php.net/manual/en/book.imagick.php
      */
     private function makeCacheIM(){
         // Read in the image with ImageMagick
@@ -285,7 +285,87 @@ class sstiles {
     }
 
     /**
+     * Make tiles with graphicsmagick 
+     *
+     * http://php.net/manual/en/book.gmagick.php
+     */
+    private function makeCacheGM(){
+        // Read in the image with ImageMagick
+        $image = new Gmagick($this->mapfile);
+
+        // Determine the dimensions
+        $srcwidth = $image->getimagewidth();
+        $srcheight = $image->getimageheight();
+
+        // Determine the start pixel and dimensions of our tile
+        $cropDim = $this->findMapSquare($srcwidth,$srcheight);
+
+        // Handle tiles which are off the map
+        if(
+            ($cropDim['sx'] + $cropDim['tw']) > $srcwidth ||
+            ($cropDim['sy'] + $cropDim['th']) > $srcheight
+        ){
+
+            // We're going to make a transparent tile, 
+            // then crop out the part of the source image we want
+            // then resize the cropped piece
+            // then compose the map piece over the transparent tile
+
+            // Transparent tile
+            $pad = new Gmagick();
+            $pad->newimage(256,256,'none','png');
+
+            if(
+                $cropDim['sx'] > $srcwidth || 
+                $cropDim['sy'] > $srcheight
+            ){
+                // we're completely off the map. Just use the transparent tile
+                $image = $pad;
+            }else{
+
+                // Crop it 
+                $chunkWidth = min($srcwidth - $cropDim['sx'],$cropDim['tw']);
+                $chunkHeight = min($srcheight - $cropDim['sy'],$cropDim['th']);
+                $image->cropimage($chunkWidth,$chunkHeight,$cropDim['sx'],$cropDim['sy']);
+                $image->setimageformat('png');
+
+                // Stretch it
+                $resizeWidth = floor($chunkWidth / $cropDim['tw'] * 256);
+                $resizeHeight = floor($chunkHeight / $cropDim['th'] * 256);
+                $image->resizeimage($resizeWidth,$resizeHeight,Gmagick::FILTER_POINT,0.5,FALSE);
+
+                // Compose it
+                $pad->compositeimage($image,Gmagick::COMPOSITE_DEFAULT, 0, 0);
+
+                // Replace it
+                $image = $pad;
+            }
+        } else {
+            // Standard on-map tiles
+            $image->cropimage($cropDim['tw'],$cropDim['th'],$cropDim['sx'],$cropDim['sy']);
+            $image->setimageformat('png');
+            $image->resizeimage(256,256,Gmagick::FILTER_POINT,0.5,FALSE);
+        }
+
+        // Should we cache it? 
+        if($this->cacheFile !== FALSE){
+            try {
+                @$image->writeimage(__DIR__ . '/' . $this->cacheFile);
+            }catch (Exception $e){
+                error_log($e->getMessage());
+            }
+        }
+
+        // Send the image from our variable instead of reading the file we just (maybe) wrote
+        $this->printHeaders();
+        print $image->getimageblob();
+        return TRUE;
+    }
+
+    /**
      * Make tiles with the convert binary (ImageMagick binary)
+     *
+     * http://www.imagemagick.org/script/convert.php
      */
     private function makeCacheIMExec(){
         // Array($width,$height)
@@ -342,6 +422,8 @@ class sstiles {
 
     /**
      * Make tiles with GD
+     *
+     * http://php.net/manual/en/book.image.php
      */
     private function makeCacheGD(){
         // Get image type and size
