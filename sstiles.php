@@ -45,32 +45,6 @@ class sstiles {
         $this->y = preg_replace('/([0-9]+).*/',"$1",$y);
         $this->cachedir = $cachedir;
         $this->padOrScale = $padOrScale;
-
-        if($this->cachedir === FALSE){
-            $this->cacheFile = FALSE;
-        }else{
-            $this->cacheFile = implode('/',Array(
-                $this->cachedir,
-                preg_replace('/[^a-zA-Z0-9\.]/','-',trim($mapfile,"./\\")),
-                $zoom,
-                $x,
-                $y
-            ));
-        }
-    }
-
-    /**
-     * Determine the ideal zoom (least lossy) for a given image
-     */
-    function idealZoom(){
-        if(class_exists("Imagick")){
-            $image = new Imagick($this->mapfile);
-            $ident = $image->identifyImage();
-            $min = min($ident['geometry']['width'],$ident['geometry']['height']);
-
-            // I have litterally never needed a log function until now.
-            return round(log($min/256,2));
-        }
     }
 
     /**
@@ -81,6 +55,8 @@ class sstiles {
             error_log("Source file for tiles not found");
             header("HTTP/1.0 404 Not Found");
         }
+
+        $this->prepCache();
 
         if(
             $this->cachedir !== FALSE &&                            // Cache is enabled
@@ -102,34 +78,90 @@ class sstiles {
             return TRUE;
         }
 
-        header("HTTP/1.0 404 Not Found");
+        @header("HTTP/1.0 404 Not Found");
+    }
+
+    /**
+     * Set the cacheFile and fileCacheDir variables
+     *
+     * Create the cachedir if possible
+     */
+    protected function prepCache(){
+        if($this->cachedir === FALSE){
+            $this->cacheFile = FALSE;
+        }else{
+            $this->cacheFile = implode('/',Array(
+                $this->cachedir,
+                preg_replace('/[^a-zA-Z0-9\.]+/','-',trim($this->mapfile,"./\\")),
+                $this->zoom,
+                $this->x,
+                $this->y
+            ));
+        }
+
+        // This cachedir is for the specific tile, not for caching in general
+        if($this->cachedir !== FALSE){
+            $this->fileCacheDir = dirname($this->cacheFile);
+            @mkdir($this->fileCacheDir,0777,TRUE);
+        }
     }
 
     /**
      * Print http headers that will induce caching
      */
-    private function printHeaders(){
+    protected function printHeaders(){
         $expires = 60*60*24*14; // Two weeks caching!
 
         if($this->cacheFile === FALSE){
-            header('Cache-Control: no-cache, no-store, must-revalidate'); // HTTP 1.1.
-            header('Pragma: no-cache'); // HTTP 1.0.
-            header('Expires: 0'); // Proxies.
+            @header('Cache-Control: no-cache, no-store, must-revalidate'); // HTTP 1.1.
+            @header('Pragma: no-cache'); // HTTP 1.0.
+            @header('Expires: 0'); // Proxies.
         }else {
             if(file_exists($this->cacheFile)){
-                header('Content-Length: ' . filesize($this->cacheFile));
-                header("Etag: " . md5_file($this->cacheFile));
-                header("Last-Modified: ".gmdate("D, d M Y H:i:s", filemtime($this->cacheFile))." GMT");
+                @header('Content-Length: ' . filesize($this->cacheFile));
+                @header("Etag: " . md5_file($this->cacheFile));
+                @header("Last-Modified: ".gmdate("D, d M Y H:i:s", filemtime($this->cacheFile))." GMT");
             }else{
-                header("Last-Modified: ".gmdate("D, d M Y H:i:s", time())." GMT");
+                @header("Last-Modified: ".gmdate("D, d M Y H:i:s", time())." GMT");
             }
 
-            header("Cache-Control: maxage=".$expires);
-            header("Pragma: public");
-            header('Expires: ' . gmdate('D, d M Y H:i:s', time()+$expires) . ' GMT');
+            @header("Cache-Control: maxage=".$expires);
+            @header("Pragma: public");
+            @header('Expires: ' . gmdate('D, d M Y H:i:s', time()+$expires) . ' GMT');
         }
 
-        header('Content-Type: image/png');
+        @header('Content-Type: image/png');
+    }
+
+
+    /**
+     * Find the pixels to use for the square!
+     */
+    protected function findMapSquare($width,$height){
+        $maxTiles = pow(2,$this->zoom);
+
+        // Tiles are 0-indexed, so we can't have maxTiles or more tiles
+        if($this->x >= $maxTiles || $this->y >= $maxTiles){
+            error_log("Zoom level {$this->zoom} doesn't have tile {$this->x},{$this->y}");
+            header("HTTP/1.0 404 Not Found");
+            exit();
+        }
+
+        if($this->padOrScale == 'scale'){
+            $tileWidth = $width / $maxTiles;
+            $tileHeight = $height / $maxTiles;
+        }else{
+            // Max because we want to pretend it's as big as the biggest side
+            $tileHeight = $tileWidth = max($width,$height) / $maxTiles;
+            $width = $height = max($width,$height);
+        }
+
+        return Array(
+            'sx' => floor($width / $maxTiles * $this->x),  // starting x
+            'sy' => floor($height / $maxTiles * $this->y), // starting y
+            'tw' => floor($tileWidth),
+            'th' => floor($tileHeight)
+        );
     }
 
     /**
@@ -137,7 +169,7 @@ class sstiles {
      *
      * @return FALSE on failure, 501 error if no supported resize method detected, sends image and exits on success
      */
-    private function makeCache(){
+    protected function makeCache(){
         /*
          * 1) Identify and get image shape
          * 2) Calculate crop area
@@ -170,43 +202,17 @@ class sstiles {
         }
     }
 
-
-    /**
-     * Find the pixels to use for the square!
-     */
-    private function findMapSquare($width,$height){
-        $maxTiles = pow(2,$this->zoom);
-
-        // Tiles are 0-indexed, so we can't have maxTiles or more tiles
-        if($this->x >= $maxTiles || $this->y >= $maxTiles){
-            error_log("Zoom level {$this->zoom} doesn't have tile {$this->x},{$this->y}");
-            header("HTTP/1.0 404 Not Found");
-            exit();
-        }
-
-        if($this->padOrScale == 'scale'){
-            $tileWidth = $width / $maxTiles;
-            $tileHeight = $height / $maxTiles;
-        }else{
-            // Max because we want to pretend it's as big as the biggest side
-            $tileHeight = $tileWidth = max($width,$height) / $maxTiles;
-            $width = $height = max($width,$height);
-        }
-
-        return Array(
-            'sx' => floor($width / $maxTiles * $this->x),  // starting x
-            'sy' => floor($height / $maxTiles * $this->y), // starting y
-            'tw' => floor($tileWidth),
-            'th' => floor($tileHeight)
-        );
-    }
-
     /**
      * Make tiles with imagemagick
      *
      * http://php.net/manual/en/book.imagick.php
+     *
+     * You might run into this: http://www.euperia.com/development/php/php-imagick-imagickexception-no-decode-delegate-for-postscript-or-pdf-files/1051
+     *
+     * You can try removing imagick and doing
+     * pecl install imagick-beta
      */
-    private function makeCacheIM(){
+    protected function makeCacheIM(){
         // Read in the image with ImageMagick
         $image = new Imagick($this->mapfile);
         // If your image has an offset you might want to uncomment this
@@ -215,15 +221,15 @@ class sstiles {
         // $image->setImagePage(0,0,0,0);
 
         // Determine the dimensions
-        $ident = $image->identifyImage();
+        $ident = $image->getImageGeometry();
 
         // Determine the start pixel and dimensions of our tile
-        $cropDim = $this->findMapSquare($ident['geometry']['width'],$ident['geometry']['height']);
+        $cropDim = $this->findMapSquare($ident['width'],$ident['height']);
 
         // Handle tiles which are off the map
         if(
-            ($cropDim['sx'] + $cropDim['tw']) > $ident['geometry']['width'] ||
-            ($cropDim['sy'] + $cropDim['th']) > $ident['geometry']['height']
+            ($cropDim['sx'] + $cropDim['tw']) > $ident['width'] ||
+            ($cropDim['sy'] + $cropDim['th']) > $ident['height']
         ){
 
             // We're going to make a transparent tile, 
@@ -236,16 +242,16 @@ class sstiles {
             $pad->newImage(256,256,'none','png');
 
             if(
-                $cropDim['sx'] > $ident['geometry']['width'] || 
-                $cropDim['sy'] > $ident['geometry']['height']
+                $cropDim['sx'] > $ident['width'] || 
+                $cropDim['sy'] > $ident['height']
             ){
                 // we're completely off the map. Just use the transparent tile
                 $image = $pad;
             }else{
 
                 // Crop it 
-                $chunkWidth = min($ident['geometry']['width'] - $cropDim['sx'],$cropDim['tw']);
-                $chunkHeight = min($ident['geometry']['height'] - $cropDim['sy'],$cropDim['th']);
+                $chunkWidth = min($ident['width'] - $cropDim['sx'],$cropDim['tw']);
+                $chunkHeight = min($ident['height'] - $cropDim['sy'],$cropDim['th']);
                 $image->cropImage($chunkWidth,$chunkHeight,$cropDim['sx'],$cropDim['sy']);
                 $image->setImagePage(0,0,0,0);
                 $image->setImageFormat('png');
@@ -272,7 +278,7 @@ class sstiles {
         // Should we cache it? 
         if($this->cacheFile !== FALSE){
             try {
-                @$image->writeImage(__DIR__ . '/' . $this->cacheFile);
+                @$image->writeImage($this->cacheFile);
             }catch (Exception $e){
                 error_log($e->getMessage());
             }
@@ -289,7 +295,7 @@ class sstiles {
      *
      * http://php.net/manual/en/book.gmagick.php
      */
-    private function makeCacheGM(){
+    protected function makeCacheGM(){
         // Read in the image with ImageMagick
         $image = new Gmagick($this->mapfile);
 
@@ -350,7 +356,7 @@ class sstiles {
         // Should we cache it? 
         if($this->cacheFile !== FALSE){
             try {
-                @$image->writeimage(__DIR__ . '/' . $this->cacheFile);
+                @$image->writeimage($this->cacheFile);
             }catch (Exception $e){
                 error_log($e->getMessage());
             }
@@ -367,7 +373,7 @@ class sstiles {
      *
      * http://www.imagemagick.org/script/convert.php
      */
-    private function makeCacheIMExec(){
+    protected function makeCacheIMExec(){
         // Array($width,$height)
         $identcmd = "convert " . escapeshellarg($this->mapfile) . " -format '%w,%h' info:";
         $ident = explode(',',`$identcmd`);
@@ -408,7 +414,7 @@ class sstiles {
         // Should we cache it? 
         if($this->cacheFile !== FALSE){
             try {
-                @file_put_contents(__DIR__ . '/' . $this->cacheFile,$tile);
+                @file_put_contents($this->cacheFile,$tile);
             }catch (Exception $e){
                 error_log($e->getMessage());
             }
@@ -425,7 +431,7 @@ class sstiles {
      *
      * http://php.net/manual/en/book.image.php
      */
-    private function makeCacheGD(){
+    protected function makeCacheGD(){
         // Get image type and size
         // Width is $ident[0], Height is $ident[1]
         $ident = getimagesize($this->mapfile);
@@ -449,8 +455,6 @@ class sstiles {
 
         // Determine the start pixel and dimensions of our tile
         $cropDim = $this->findMapSquare($ident[0],$ident[1]);
-
-
 
         // Handle tiles which are off the map
         if(
@@ -494,7 +498,7 @@ class sstiles {
 
         if($this->cacheFile !== FALSE){
             try {
-                imagepng($image,__DIR__ . '/' . $this->cacheFile);
+                @imagepng($image,$this->cacheFile);
             }catch (Exception $e){
                 error_log($e->getMessage());
             }
@@ -510,7 +514,7 @@ class sstiles {
      *
      * http://www.imagemagick.org/api/magick-image.php#MagickResizeImage
      */
-    private function makeCacheMagickWand(){
+    protected function makeCacheMagickWand(){
 
         $image = NewMagickWand();
         MagickReadImage($image,$this->mapfile);
@@ -567,7 +571,7 @@ class sstiles {
 
         if($this->cacheFile !== FALSE){
             try {
-                @MagickWriteImage($image,__DIR__ . '/' . $this->cacheFile);
+                @MagickWriteImage($image,$this->cacheFile);
             }catch (Exception $e){
                 error_log($e->getMessage());
             }
