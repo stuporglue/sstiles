@@ -1,0 +1,3 @@
+[submodule "benchmark/xhprof"]
+	path = benchmark/xhprof
+	url = https://github.com/facebook/xhprof.git
