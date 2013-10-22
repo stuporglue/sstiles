@@ -28,6 +28,29 @@
  */
 class sstiles {
 
+        var $maxTiles = Array(
+            '0' => 1,
+            '1' => 2,
+            '2' => 4,
+            '3' => 8,
+            '4' => 16,
+            '5' => 32,
+            '6' => 64,
+            '7' => 128,
+            '8' => 256,
+            '9' => 512,
+            '10' => 1024,
+            '11' => 2048,
+            '12' => 4096,
+            '13' => 8192,
+            '14' => 16384,
+            '15' => 32768,
+            '16' => 65536,
+            '17' => 131072,
+            '18' => 262144,
+            '19' => 524288,
+        );
+
     /**
      * Get a single tile, creating it if needed
      *
@@ -75,6 +98,7 @@ class sstiles {
         }
 
         if($this->makeCache()){
+            @header ("Connection: close");
             return TRUE;
         }
 
@@ -110,27 +134,32 @@ class sstiles {
      * Print http headers that will induce caching
      */
     protected function printHeaders(){
-        $expires = 60*60*24*14; // Two weeks caching!
-
-        if($this->cacheFile === FALSE){
-            @header('Cache-Control: no-cache, no-store, must-revalidate'); // HTTP 1.1.
-            @header('Pragma: no-cache'); // HTTP 1.0.
-            @header('Expires: 0'); // Proxies.
-        }else {
-            if(file_exists($this->cacheFile)){
-                @header('Content-Length: ' . filesize($this->cacheFile));
-                @header("Etag: " . md5_file($this->cacheFile));
-                @header("Last-Modified: ".gmdate("D, d M Y H:i:s", filemtime($this->cacheFile))." GMT");
-            }else{
-                @header("Last-Modified: ".gmdate("D, d M Y H:i:s", time())." GMT");
-            }
-
-            @header("Cache-Control: maxage=".$expires);
-            @header("Pragma: public");
-            @header('Expires: ' . gmdate('D, d M Y H:i:s', time()+$expires) . ' GMT');
+        if(headers_sent()){
+            // too late!
+            return;
         }
 
-        @header('Content-Type: image/png');
+        $expires = 1209600; // 60*60*24*14 -- Two weeks caching!
+
+        if($this->cacheFile === FALSE){
+            header('Cache-Control: no-cache, no-store, must-revalidate'); // HTTP 1.1.
+            header('Pragma: no-cache'); // HTTP 1.0.
+            header('Expires: 0'); // Proxies.
+        }else {
+            if(file_exists($this->cacheFile)){
+                header('Content-Length: ' . filesize($this->cacheFile));
+                header("Etag: " . md5_file($this->cacheFile));
+                header("Last-Modified: ".gmdate("D, d M Y H:i:s", filemtime($this->cacheFile))." GMT");
+            }else{
+                header("Last-Modified: ".gmdate("D, d M Y H:i:s", time())." GMT");
+            }
+
+            header("Cache-Control: maxage=".$expires);
+            header("Pragma: public");
+            header('Expires: ' . gmdate('D, d M Y H:i:s', time()+$expires) . ' GMT');
+        }
+
+        header('Content-Type: image/png');
     }
 
 
@@ -138,7 +167,12 @@ class sstiles {
      * Find the pixels to use for the square!
      */
     protected function findMapSquare($width,$height){
-        $maxTiles = pow(2,$this->zoom);
+
+        if(isset($this->maxTiles[$this->zoom])){
+            $maxTiles = $this->maxTiles[$this->zoom];
+        }else{
+            $maxTiles = pow(2,$this->zoom);
+        }
 
         // Tiles are 0-indexed, so we can't have maxTiles or more tiles
         if($this->x >= $maxTiles || $this->y >= $maxTiles){
@@ -189,7 +223,7 @@ class sstiles {
         }else if(extension_loaded("imagick")) {
             return $this->makeCacheIM();
             exit();
-        }else if(`which convert` != ''){
+        }else if(`convert` != ''){
             return $this->makeCacheIMExec();
             exit();
         }else if(extension_loaded('gd')){
@@ -279,6 +313,9 @@ class sstiles {
         if($this->cacheFile !== FALSE){
             try {
                 @$image->writeImage($this->cacheFile);
+                $this->printHeaders();
+                readfile($this->cacheFile);
+                return TRUE;
             }catch (Exception $e){
                 error_log($e->getMessage());
             }
@@ -357,6 +394,9 @@ class sstiles {
         if($this->cacheFile !== FALSE){
             try {
                 @$image->writeimage($this->cacheFile);
+                $this->printHeaders();
+                readfile($this->cacheFile);
+                return TRUE;
             }catch (Exception $e){
                 error_log($e->getMessage());
             }
@@ -389,40 +429,43 @@ class sstiles {
             ($cropDim['sy'] + $cropDim['th']) > $ident[1]
         ){
             if(
-                $cropDim['sx'] > $ident['geometry']['width'] || 
-                $cropDim['sy'] > $ident['geometry']['height']
+                $cropDim['sx'] > $ident[0] || 
+                $cropDim['sy'] > $ident[1]
             ){
                 // we're completely off the map. Just use the transparent tile
                 $tilecmd = "convert -size 256x256 xc:#12312300 png:-";
-                $tile = `$tilecmd`;
             }else{
-                $chunkWidth = min($ident['geometry']['width'] - $cropDim['sx'],$cropDim['tw']);
-                $chunkHeight = min($ident['geometry']['height'] - $cropDim['sy'],$cropDim['th']);
+                $chunkWidth = min($ident[0] - $cropDim['sx'],$cropDim['tw']);
+                $chunkHeight = min($ident[1] - $cropDim['sy'],$cropDim['th']);
                 $resizeWidth = floor($chunkWidth / $cropDim['tw'] * 256);
                 $resizeHeight = floor($chunkHeight / $cropDim['th'] * 256);
 
                 // crop, repage, resize, pad
                 $tilecmd = "convert " . escapeshellarg($this->mapfile) . " -crop {$chunkWidth}x{$chunkHeight}+{$cropDim['sx']}+{$cropDim['sy']} +repage -resize {$resizeWidth}x{$resizeHeight} -background '#12121200' -gravity northwest -extent 256x256 png:-";
-                $tile = `$tilecmd`;
             }
         }else{
             // crop, scale
             $tilecmd = "convert " . escapeshellarg($this->mapfile) . " -crop {$cropDim['tw']}x{$cropDim['th']}+{$cropDim['sx']}+{$cropDim['sy']} +repage -resize 256x256! -filter Point png:-";
-            $tile = `$tilecmd`;
         }
 
         // Should we cache it? 
         if($this->cacheFile !== FALSE){
-            try {
-                @file_put_contents($this->cacheFile,$tile);
-            }catch (Exception $e){
-                error_log($e->getMessage());
-            }
+
+            // using the command line we're going to do a little trick. 
+            // If we need to write the file, we'll write it with the shell command
+            // but we'll use tee so that we also have the image returned. 
+            // Since we'll use the passthru function instead of shell_exec
+            // we won't actually have to load the image into php's memory
+            $tilecmd .=  " | tee {$this->cacheFile}";
         }
 
-        // Send the image from our variable instead of reading the file we just (maybe) wrote
         $this->printHeaders();
-        print $tile;
+        try {
+            @passthru($tilecmd);
+        }catch (Exception $e){
+            error_log($e->getMessage());
+        }
+
         return TRUE;
     }
 
@@ -456,25 +499,24 @@ class sstiles {
         // Determine the start pixel and dimensions of our tile
         $cropDim = $this->findMapSquare($ident[0],$ident[1]);
 
+        // Transparent tile. This seems like a lot of code for a transparent square.
+        $pad = imagecreatetruecolor(256,256);
+        imagealphablending($pad, false);
+        $col = imagecolorallocatealpha($image,255,255,255,127);
+        imagefilledrectangle($pad,0,0,256,256,$col);
+        imagealphablending($pad,true);
+        imagesavealpha($pad,true);
+
         // Handle tiles which are off the map
         if(
-            ($cropDim['sx'] + $cropDim['tw']) > $ident['geometry']['width'] ||
-            ($cropDim['sy'] + $cropDim['th']) > $ident['geometry']['height']
+            ($cropDim['sx'] + $cropDim['tw']) > $ident[0] ||
+            ($cropDim['sy'] + $cropDim['th']) > $ident[1]
         ){
 
             // We're going to make a transparent tile, 
             // then crop out the part of the source image we want
             // then resize the cropped piece
             // then compose the map piece over the transparent tile
-
-            // Transparent tile. This seems like a lot of code for a transparent square.
-            $pad = imagecreatetruecolor(256,256);
-            imagealphablending($pad, false);
-            $col = imagecolorallocatealpha($image,255,255,255,127);
-            imagefilledrectangle($pad,0,0,256,256,$col);
-            imagealphablending($pad,true);
-            imagesavealpha($pad,true);
-
             if(
                 $cropDim['sx'] > $ident[0] || 
                 $cropDim['sy'] > $ident[1]
@@ -492,13 +534,18 @@ class sstiles {
                 $image = $pad;
             }
         }else{
-            imagecrop($image,Array($cropDim['sx'],$cropDim['sy'],$cropDim['tw'],$cropDim['th']));
-            imagescale($image,256,256);
+            imagecopyresized($pad,$image,0,0,$cropDim['sx'],$cropDim['sy'],256,256,$cropDim['tw'],$cropDim['th']);
+            $image = $pad;
         }
 
         if($this->cacheFile !== FALSE){
             try {
+                // imagepng is super slow. We're going to print the image here 
+                // with readfile instead of running imagepng twice
                 @imagepng($image,$this->cacheFile);
+                $this->printHeaders();
+                readfile($this->cacheFile);
+                return TRUE;
             }catch (Exception $e){
                 error_log($e->getMessage());
             }
@@ -535,7 +582,7 @@ class sstiles {
             // then compose the map piece over the transparent tile
 
             // Transparent tile
-            $pad = new NewMagickWand();
+            $pad = NewMagickWand();
             MagickNewImage($pad,256,256,'none');
 
             if(
@@ -572,11 +619,13 @@ class sstiles {
         if($this->cacheFile !== FALSE){
             try {
                 @MagickWriteImage($image,$this->cacheFile);
+                $this->printHeaders();
+                readfile($this->cacheFile);
+                return TRUE;
             }catch (Exception $e){
                 error_log($e->getMessage());
             }
         }
-
 
         $this->printHeaders();
         print MagickEchoImageBlob($image);

@@ -53,16 +53,15 @@ class ssutil extends sstiles{
 
         // Figure out which methods we can test
         $benchmarkMethods = Array(
+            'makeCacheMagickWand' => extension_loaded("magickwand"),
             'makeCacheGD' => extension_loaded('gd'),
             'makeCacheGM' => extension_loaded('gmagick'),
             'makeCacheIM' => extension_loaded("imagick"),
             'makeCacheIMExec' => (strlen(`which convert`) > 0),
-            'makeCacheMagickWand' => extension_loaded("magickwand"),
         );
 
         // capture headers which have already been set
         $headers = headers_list();
-        ob_start();
         error_log("Starting tile benchmark with $rounds rounds for each enabled method");
         foreach($benchmarkMethods as $method => $results){
 
@@ -75,11 +74,15 @@ class ssutil extends sstiles{
 
             $tilesFound = 0;
             $starttime = microtime(TRUE);
+            $maxtime = 0;
+            $mintime = 999999999999999;
 
             while($tilesFound < $rounds){
                 for($x = 0;$x<$tilesAtZoom;$x++){
                     for($y = 0;$y<$tilesAtZoom;$y++){
-                        if($tilesFound > $rounds){
+                        $roundstart = microtime(TRUE);
+
+                        if($tilesFound == $rounds){
                             break(3);
                         }
                         
@@ -92,19 +95,37 @@ class ssutil extends sstiles{
                             $this->$method();
                         }catch (Exception $e){
                             error_log("Benchmark error caught: " . $e->getMessage());
+                            break(3);
                         }
 
                         // discard image printed to browser
-                        ob_clean();
 
                         $tilesFound++;
+                        $roundstop = microtime(TRUE);
+
+                        $roundtime = $roundstop - $roundstart;
+
+                        if($roundtime > $maxtime){
+                            $maxtime = $roundtime;
+                        }
+
+                        if($roundtime < $mintime){
+                            $mintime = $roundtime;
+                        }
                     }
                 }
             }
 
             $stoptime = microtime(TRUE);
             $runtime = $stoptime - $starttime;
-            $benchmarkMethods[$method] = $runtime;
+            $benchmarkMethods[$method] = Array(
+                'iterations' => $tilesFound,
+                'totaltime' => $runtime,
+                'avgtime' => ($runtime / $tilesFound),
+                'mintime' => $mintime,
+                'maxtime' => $maxtime,
+                'variation' => ($maxtime - $mintime),
+            );
         }
 
         header_remove();
