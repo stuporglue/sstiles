@@ -185,16 +185,15 @@ class sstiles {
             $tileWidth = $width / $maxTiles;
             $tileHeight = $height / $maxTiles;
         }else{
-            // Max because we want to pretend it's as big as the biggest side
-            $tileHeight = $tileWidth = max($width,$height) / $maxTiles;
-            $width = $height = max($width,$height);
+            $width = $height = ($width > $height ? $width : $height);
+            $tileHeight = $tileWidth = $width / $maxTiles;
         }
 
         return Array(
-            'sx' => floor($width / $maxTiles * $this->x),  // starting x
-            'sy' => floor($height / $maxTiles * $this->y), // starting y
-            'tw' => floor($tileWidth),
-            'th' => floor($tileHeight)
+            'sx' => (int)($width / $maxTiles * $this->x),  // starting x
+            'sy' => (int)($height / $maxTiles * $this->y), // starting y
+            'tw' => (int)($tileWidth),
+            'th' => (int)($tileHeight)
         );
     }
 
@@ -284,15 +283,15 @@ class sstiles {
             }else{
 
                 // Crop it 
-                $chunkWidth = min($ident['width'] - $cropDim['sx'],$cropDim['tw']);
-                $chunkHeight = min($ident['height'] - $cropDim['sy'],$cropDim['th']);
+                $chunkWidth = (($ident['width'] - $cropDim['sx']) < $cropDim['tw'] ? ($ident['width'] - $cropDim['sx']) : $cropDim['tw']);
+                $chunkHeight = (($ident['height'] - $cropDim['sy']) < $cropDim['th'] ? ($ident['height'] - $cropDim['sy']) : $cropDim['th']);
                 $image->cropImage($chunkWidth,$chunkHeight,$cropDim['sx'],$cropDim['sy']);
                 $image->setImagePage(0,0,0,0);
                 $image->setImageFormat('png');
 
                 // Stretch it
-                $resizeWidth = floor($chunkWidth / $cropDim['tw'] * 256);
-                $resizeHeight = floor($chunkHeight / $cropDim['th'] * 256);
+                $resizeWidth = (int)($chunkWidth / $cropDim['tw'] * 256);
+                $resizeHeight = (int)($chunkHeight / $cropDim['th'] * 256);
                 $image->resizeImage($resizeWidth,$resizeHeight,imagick::FILTER_POINT,0.5,FALSE);
 
                 // Compose it
@@ -367,14 +366,14 @@ class sstiles {
             }else{
 
                 // Crop it 
-                $chunkWidth = min($srcwidth - $cropDim['sx'],$cropDim['tw']);
-                $chunkHeight = min($srcheight - $cropDim['sy'],$cropDim['th']);
+                $chunkWidth = (($ident['width'] - $cropDim['sx']) < $cropDim['tw'] ? ($ident['width'] - $cropDim['sx']) : $cropDim['tw']);
+                $chunkHeight = (($ident['height'] - $cropDim['sy']) < $cropDim['th'] ? ($ident['height'] - $cropDim['sy']) : $cropDim['th']);
                 $image->cropimage($chunkWidth,$chunkHeight,$cropDim['sx'],$cropDim['sy']);
                 $image->setimageformat('png');
 
                 // Stretch it
-                $resizeWidth = floor($chunkWidth / $cropDim['tw'] * 256);
-                $resizeHeight = floor($chunkHeight / $cropDim['th'] * 256);
+                $resizeWidth = (int)($chunkWidth / $cropDim['tw'] * 256);
+                $resizeHeight = (int)($chunkHeight / $cropDim['th'] * 256);
                 $image->resizeimage($resizeWidth,$resizeHeight,Gmagick::FILTER_POINT,0.5,FALSE);
 
                 // Compose it
@@ -435,10 +434,10 @@ class sstiles {
                 // we're completely off the map. Just use the transparent tile
                 $tilecmd = "convert -size 256x256 xc:#12312300 png:-";
             }else{
-                $chunkWidth = min($ident[0] - $cropDim['sx'],$cropDim['tw']);
-                $chunkHeight = min($ident[1] - $cropDim['sy'],$cropDim['th']);
-                $resizeWidth = floor($chunkWidth / $cropDim['tw'] * 256);
-                $resizeHeight = floor($chunkHeight / $cropDim['th'] * 256);
+                $chunkWidth = (($ident['width'] - $cropDim['sx']) < $cropDim['tw'] ? ($ident['width'] - $cropDim['sx']) : $cropDim['tw']);
+                $chunkHeight = (($ident['height'] - $cropDim['sy']) < $cropDim['th'] ? ($ident['height'] - $cropDim['sy']) : $cropDim['th']);
+                $resizeWidth = (int)($chunkWidth / $cropDim['tw'] * 256);
+                $resizeHeight = (int)($chunkHeight / $cropDim['th'] * 256);
 
                 // crop, repage, resize, pad
                 $tilecmd = "convert " . escapeshellarg($this->mapfile) . " -crop {$chunkWidth}x{$chunkHeight}+{$cropDim['sx']}+{$cropDim['sy']} +repage -resize {$resizeWidth}x{$resizeHeight} -background '#12121200' -gravity northwest -extent 256x256 png:-";
@@ -524,10 +523,10 @@ class sstiles {
                 // we're completely off the map. Just use the transparent tile
                 $image = $pad;
             }else{
-                $chunkWidth = min($ident[0] - $cropDim['sx'],$cropDim['tw']);
-                $chunkHeight = min($ident[1] - $cropDim['sy'],$cropDim['th']);
-                $resizeWidth = floor($chunkWidth / $cropDim['tw'] * 256);
-                $resizeHeight = floor($chunkHeight / $cropDim['th'] * 256);
+                $chunkWidth = (($ident['width'] - $cropDim['sx']) < $cropDim['tw'] ? ($ident['width'] - $cropDim['sx']) : $cropDim['tw']);
+                $chunkHeight = (($ident['height'] - $cropDim['sy']) < $cropDim['th'] ? ($ident['height'] - $cropDim['sy']) : $cropDim['th']);
+                $resizeWidth = (int)($chunkWidth / $cropDim['tw'] * 256);
+                $resizeHeight = (int)($chunkHeight / $cropDim['th'] * 256);
 
                 // Crop, stretch and compose all at once
                 imagecopyresized($pad,$image,0,0,$cropDim['sx'],$cropDim['sy'],$resizeWidth,$resizeHeight,$chunkWidth,$chunkHeight);
@@ -594,13 +593,13 @@ class sstiles {
             }else{
 
                 // Crop it 
-                $chunkWidth = min($srcwidth - $cropDim['sx'],$cropDim['tw']);
-                $chunkHeight = min($srcheight - $cropDim['sy'],$cropDim['th']);
+                $chunkWidth = (($ident['width'] - $cropDim['sx']) < $cropDim['tw'] ? ($ident['width'] - $cropDim['sx']) : $cropDim['tw']);
+                $chunkHeight = (($ident['height'] - $cropDim['sy']) < $cropDim['th'] ? ($ident['height'] - $cropDim['sy']) : $cropDim['th']);
                 MagickCropImage($image,$chunkWidth,$chunkHeight,$cropDim['sx'],$cropDim['sy']);
 
                 // Stretch it
-                $resizeWidth = floor($chunkWidth / $cropDim['tw'] * 256);
-                $resizeHeight = floor($chunkHeight / $cropDim['th'] * 256);
+                $resizeWidth = (int)($chunkWidth / $cropDim['tw'] * 256);
+                $resizeHeight = (int)($chunkHeight / $cropDim['th'] * 256);
                 MagickResizeImage($image,$resizeWidth,$resizeHeight,MW_PointFilter,0.5);
 
                 // Compose it

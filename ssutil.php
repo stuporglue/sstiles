@@ -43,7 +43,7 @@ class ssutil extends sstiles{
      *
      * Returns a hash with the method as the key and the time it took to run in seconds.
      */
-    function benchmark($rounds = 1){
+    function benchmark($rounds = 1,$outputCSV = TRUE){
         $benchmarkstart = microtime(TRUE);
 
         // Try to remove the time limit
@@ -104,6 +104,10 @@ class ssutil extends sstiles{
                         $roundstop = microtime(TRUE);
 
                         $roundtime = $roundstop - $roundstart;
+
+                        if($outputCSV){
+                            error_log("$method,$roundtime");
+                        }
 
                         if($roundtime > $maxtime){
                             $maxtime = $roundtime;

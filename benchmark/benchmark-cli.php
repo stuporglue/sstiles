@@ -11,4 +11,3 @@ set_error_handler('errhandler');
 
 $t = new ssutil('../maps/document.png',8,0,0,'stretch','../cache');
 $benchmark = $t->benchmark(1000);
-error_log(print_r($benchmark,TRUE));
