@@ -222,7 +222,7 @@ class sstiles {
         }else if(extension_loaded("imagick")) {
             return $this->makeCacheIM();
             exit();
-        }else if(`convert` != ''){
+        }else if(`which convert` != ''){
             return $this->makeCacheIMExec();
             exit();
         }else if(extension_loaded('gd')){
@@ -287,7 +287,6 @@ class sstiles {
                 $chunkHeight = (($ident['height'] - $cropDim['sy']) < $cropDim['th'] ? ($ident['height'] - $cropDim['sy']) : $cropDim['th']);
                 $image->cropImage($chunkWidth,$chunkHeight,$cropDim['sx'],$cropDim['sy']);
                 $image->setImagePage(0,0,0,0);
-                $image->setImageFormat('png');
 
                 // Stretch it
                 $resizeWidth = (int)($chunkWidth / $cropDim['tw'] * 256);
@@ -304,11 +303,11 @@ class sstiles {
             // Standard on-map tiles
             $image->cropImage($cropDim['tw'],$cropDim['th'],$cropDim['sx'],$cropDim['sy']);
             $image->setImagePage(0,0,0,0);
-            $image->setImageFormat('png');
             $image->resizeImage(256,256,imagick::FILTER_POINT,0.5,FALSE);
         }
 
         // Should we cache it? 
+        $image->setImageFormat('png');
         if($this->cacheFile !== FALSE){
             try {
                 @$image->writeImage($this->cacheFile);
@@ -414,7 +413,8 @@ class sstiles {
      */
     protected function makeCacheIMExec(){
         // Array($width,$height)
-        $identcmd = "convert " . escapeshellarg($this->mapfile) . " -format '%w,%h' info:";
+        // If you've got convert, but not identify, that's going to be a problem
+        $identcmd = "identify -format '%w,%h' -ping " . escapeshellarg($this->mapfile);
         $ident = explode(',',`$identcmd`);
         $cropDim = $this->findMapSquare($ident[0],$ident[1]);
 

@@ -49,8 +49,6 @@ class ssutil extends sstiles{
         // Try to remove the time limit
         @set_time_limit(0);
 
-        $tilesAtZoom = pow(2,$this->zoom);
-
         // Figure out which methods we can test
         $benchmarkMethods = Array(
             'makeCacheMagickWand' => extension_loaded("magickwand"),
@@ -70,66 +68,7 @@ class ssutil extends sstiles{
                 continue;
             }
 
-            error_log("Testing $method");
-
-            $tilesFound = 0;
-            $starttime = microtime(TRUE);
-            $maxtime = 0;
-            $mintime = 999999999999999;
-
-            while($tilesFound < $rounds){
-                for($x = 0;$x<$tilesAtZoom;$x++){
-                    for($y = 0;$y<$tilesAtZoom;$y++){
-                        $roundstart = microtime(TRUE);
-
-                        if($tilesFound == $rounds){
-                            break(3);
-                        }
-                        
-                        $this->x = $x;     
-                        $this->y = $y;
-
-                        $this->prepCache();
-
-                        try {
-                            $this->$method();
-                        }catch (Exception $e){
-                            error_log("Benchmark error caught: " . $e->getMessage());
-                            break(3);
-                        }
-
-                        // discard image printed to browser
-
-                        $tilesFound++;
-                        $roundstop = microtime(TRUE);
-
-                        $roundtime = $roundstop - $roundstart;
-
-                        if($outputCSV){
-                            error_log("$method,$roundtime");
-                        }
-
-                        if($roundtime > $maxtime){
-                            $maxtime = $roundtime;
-                        }
-
-                        if($roundtime < $mintime){
-                            $mintime = $roundtime;
-                        }
-                    }
-                }
-            }
-
-            $stoptime = microtime(TRUE);
-            $runtime = $stoptime - $starttime;
-            $benchmarkMethods[$method] = Array(
-                'iterations' => $tilesFound,
-                'totaltime' => $runtime,
-                'avgtime' => ($runtime / $tilesFound),
-                'mintime' => $mintime,
-                'maxtime' => $maxtime,
-                'variation' => ($maxtime - $mintime),
-            );
+            $benchmarkMethods[$method] = $this->benchmarkMethod($method,$rounds,$outputCSV);
         }
 
         header_remove();
@@ -139,5 +78,71 @@ class ssutil extends sstiles{
 
         $benchmarkMethods['TOTAL TIME'] = (microtime(TRUE) - $benchmarkstart);
         return $benchmarkMethods;
+    }
+
+    function benchmarkMethod($method,$rounds,$outputCSV = TRUE){
+
+
+        error_log("Testing $method");
+
+        $tilesAtZoom = pow(2,$this->zoom);
+        $tilesFound = 0;
+        $starttime = microtime(TRUE);
+        $maxtime = 0;
+        $mintime = 999999999999999;
+
+        while($tilesFound < $rounds){
+            for($x = 0;$x<$tilesAtZoom;$x++){
+                for($y = 0;$y<$tilesAtZoom;$y++){
+                    $roundstart = microtime(TRUE);
+
+                    if($tilesFound == $rounds){
+                        break(3);
+                    }
+
+                    $this->x = $x;     
+                    $this->y = $y;
+
+                    $this->prepCache();
+
+                    try {
+                        $this->$method();
+                    }catch (Exception $e){
+                        error_log("Benchmark error caught: " . $e->getMessage());
+                        break(3);
+                    }
+
+                    // discard image printed to browser
+
+                    $tilesFound++;
+                    $roundstop = microtime(TRUE);
+
+                    $roundtime = $roundstop - $roundstart;
+
+                    if($outputCSV){
+                        error_log("$method,$roundtime");
+                    }
+
+                    if($roundtime > $maxtime){
+                        $maxtime = $roundtime;
+                    }
+
+                    if($roundtime < $mintime){
+                        $mintime = $roundtime;
+                    }
+                }
+            }
+        }
+
+        $stoptime = microtime(TRUE);
+        $runtime = $stoptime - $starttime;
+        return Array(
+            'iterations' => $tilesFound,
+            'totaltime' => $runtime,
+            'avgtime' => ($runtime / $tilesFound),
+            'mintime' => $mintime,
+            'maxtime' => $maxtime,
+            'variation' => ($maxtime - $mintime),
+        );
     }
 }
