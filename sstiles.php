@@ -189,6 +189,12 @@ class sstiles {
             $tileHeight = $tileWidth = $width / $maxTiles;
         }
 
+		if ( $tileWidth === 0 || $tileHeight === 0 ) {
+			error_log("Zoom level {$this->zoom} results in a zero-width or zero-height source area! Set your max-zoom level to a lower level!");
+            header("HTTP/1.0 404 Not Found");
+			exit();
+		}
+
         return Array(
             'sx' => (int)($width / $maxTiles * $this->x),  // starting x
             'sy' => (int)($height / $maxTiles * $this->y), // starting y
